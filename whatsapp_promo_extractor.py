@@ -41,6 +41,7 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     StaleElementReferenceException,
 )
+# pyrefly: ignore [missing-import]
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ─────────────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ CONVERSAS_ALVO: list[str] = [
     "Lobão das Promoções #136",
     "Investiguei Ofertas #139",
     "REI DA PROMO | 654",
+    "Ofertas Gamer #154",
     "#93 Estilo Masculino | Ofertas & Achados"
 ]
 

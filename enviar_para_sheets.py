@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Lê o CSV gerado pelo whatsapp_promo_extractor.py e envia os dados
-para uma planilha do Google Sheets.
+para uma planilha do Google Sheets, evitando reenviar promoções
+já enviadas anteriormente (controle via enviados.json).
 
 Requisitos:
     pip install gspread google-auth pandas
@@ -19,6 +20,8 @@ Uso:
 
 from __future__ import annotations
 
+import json
+import hashlib
 import logging
 from pathlib import Path
 
@@ -31,13 +34,10 @@ from google.oauth2.service_account import Credentials
 # ─────────────────────────────────────────────────────────────────────
 
 ARQUIVO_CSV = "promocoes_whatsapp.csv"
+ARQUIVO_ENVIADOS = "enviados.json"
 CREDENTIALS_PATH = "credentials.json"
-NOME_DA_PLANILHA = "promocoes_whatsapp"   # nome exato da planilha no Google Sheets
-NOME_DA_ABA = None                # None = usa a primeira aba (sheet1)
-
-# Se True, apaga os dados antigos da aba antes de subir os novos.
-# Se False, só adiciona (append) as linhas novas no final.
-SUBSTITUIR_TUDO = False
+NOME_DA_PLANILHA = "promocoes_whatsapp"
+NOME_DA_ABA = None  # None = usa a primeira aba (sheet1)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,32 +65,66 @@ def carregar_csv() -> pd.DataFrame:
         raise FileNotFoundError(
             f'Arquivo "{ARQUIVO_CSV}" não encontrado. Rode o extrator primeiro.'
         )
-    # O CSV foi salvo com separador ";" e encoding utf-8-sig.
     df = pd.read_csv(caminho, sep=";", encoding="utf-8-sig")
     df = df.fillna("")
     return df
 
 
-def enviar(df: pd.DataFrame, aba) -> None:
-    if SUBSTITUIR_TUDO:
-        aba.clear()
-        aba.update([df.columns.tolist()] + df.astype(str).values.tolist())
-        log.info(f"✔ Planilha substituída com {len(df)} linhas.")
+def gerar_id(linha: dict) -> str:
+    """Gera um hash único para a linha, baseado em conversa + remetente +
+    data/hora + texto original. Serve para identificar duplicatas."""
+    chave = "|".join([
+        str(linha.get("conversa", "")),
+        str(linha.get("remetente", "")),
+        str(linha.get("data_hora_mensagem", "")),
+        str(linha.get("texto_original", "")),
+    ])
+    return hashlib.sha256(chave.encode("utf-8")).hexdigest()
+
+
+def carregar_enviados() -> set[str]:
+    caminho = Path(ARQUIVO_ENVIADOS)
+    if not caminho.exists():
+        return set()
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            return set(json.load(f))
+    except (json.JSONDecodeError, OSError):
+        log.warning(f'Não foi possível ler "{ARQUIVO_ENVIADOS}", começando do zero.')
+        return set()
+
+
+def salvar_enviados(ids: set[str]) -> None:
+    with open(ARQUIVO_ENVIADOS, "w", encoding="utf-8") as f:
+        json.dump(sorted(ids), f, ensure_ascii=False, indent=2)
+
+
+def enviar(df: pd.DataFrame, aba, ja_enviados: set[str]) -> set[str]:
+    valores_atuais = aba.get_all_values()
+    if len(valores_atuais) == 0:
+        aba.append_row(df.columns.tolist())
+
+    novos_ids: set[str] = set()
+    linhas_enviadas = 0
+
+    for _, row in df.iterrows():
+        registro = row.to_dict()
+        id_msg = gerar_id(registro)
+
+        if id_msg in ja_enviados:
+            continue
+
+        linha = [str(v) for v in row.tolist()]
+        aba.append_row(linha)
+        novos_ids.add(id_msg)
+        linhas_enviadas += 1
+
+    if linhas_enviadas:
+        log.info(f"✔ {linhas_enviadas} linha(s) nova(s) adicionada(s) à planilha.")
     else:
-        # Evita duplicar: pega quantas linhas já existem (menos o cabeçalho)
-        # e só envia o que ainda não foi enviado, assumindo que o CSV
-        # é sempre reescrito do zero a cada execução do extrator.
-        valores_atuais = aba.get_all_values()
-        se_vazia = len(valores_atuais) == 0
+        log.info("Nenhuma linha nova — todas já haviam sido enviadas anteriormente.")
 
-        if se_vazia:
-            aba.append_row(df.columns.tolist())
-
-        linhas = df.astype(str).values.tolist()
-        for linha in linhas:
-            aba.append_row(linha)
-
-        log.info(f"✔ {len(linhas)} linhas adicionadas ao final da planilha.")
+    return novos_ids
 
 
 def main() -> None:
@@ -102,11 +136,18 @@ def main() -> None:
         log.warning("CSV vazio, nada para enviar.")
         return
 
+    ja_enviados = carregar_enviados()
+    log.info(f"{len(ja_enviados)} promoção(ões) já enviadas anteriormente (histórico local).")
+
     log.info(f'Conectando na planilha "{NOME_DA_PLANILHA}"...')
     aba = conectar_planilha()
 
-    log.info("Enviando dados...")
-    enviar(df, aba)
+    log.info("Enviando dados novos...")
+    novos_ids = enviar(df, aba, ja_enviados)
+
+    if novos_ids:
+        ja_enviados.update(novos_ids)
+        salvar_enviados(ja_enviados)
 
     log.info("Concluído.")
 

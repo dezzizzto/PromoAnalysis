@@ -36,7 +36,7 @@ from google.oauth2.service_account import Credentials
 # ─────────────────────────────────────────────────────────────────────
 
 ARQUIVO_CSV = "promocoes_whatsapp.csv"
-LIMITE_DESCONTO = 80  # percentual mínimo para disparar o alerta
+LIMITE_DESCONTO = 60  # percentual mínimo para disparar o alerta
 
 # Prefira configurar via variáveis de ambiente (mais seguro do que deixar
 # hardcoded aqui, principalmente se o arquivo for parar no GitHub por engano).
