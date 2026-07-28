@@ -21,6 +21,7 @@ Uso:
 from __future__ import annotations
 
 import json
+import time
 import hashlib
 import logging
 from pathlib import Path
@@ -105,7 +106,7 @@ def enviar(df: pd.DataFrame, aba, ja_enviados: set[str]) -> set[str]:
         aba.append_row(df.columns.tolist())
 
     novos_ids: set[str] = set()
-    linhas_enviadas = 0
+    linhas_para_enviar: list[list[str]] = []
 
     for _, row in df.iterrows():
         registro = row.to_dict()
@@ -114,13 +115,22 @@ def enviar(df: pd.DataFrame, aba, ja_enviados: set[str]) -> set[str]:
         if id_msg in ja_enviados:
             continue
 
-        linha = [str(v) for v in row.tolist()]
-        aba.append_row(linha)
+        linhas_para_enviar.append([str(v) for v in row.tolist()])
         novos_ids.add(id_msg)
-        linhas_enviadas += 1
 
-    if linhas_enviadas:
-        log.info(f"✔ {linhas_enviadas} linha(s) nova(s) adicionada(s) à planilha.")
+    if linhas_para_enviar:
+        # Envia tudo em uma única chamada (append_rows, plural) em vez de
+        # uma chamada por linha — evita estourar o limite de requisições
+        # por minuto da API do Google Sheets quando há muitas linhas novas.
+        # Em lotes de até 500 linhas por chamada, por segurança.
+        TAMANHO_LOTE = 500
+        for i in range(0, len(linhas_para_enviar), TAMANHO_LOTE):
+            lote = linhas_para_enviar[i:i + TAMANHO_LOTE]
+            aba.append_rows(lote, value_input_option="USER_ENTERED")
+            if i + TAMANHO_LOTE < len(linhas_para_enviar):
+                time.sleep(2)  # pequena pausa entre lotes grandes
+
+        log.info(f"✔ {len(linhas_para_enviar)} linha(s) nova(s) adicionada(s) à planilha.")
     else:
         log.info("Nenhuma linha nova — todas já haviam sido enviadas anteriormente.")
 

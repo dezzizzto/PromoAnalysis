@@ -41,7 +41,6 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     StaleElementReferenceException,
 )
-# pyrefly: ignore [missing-import]
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ─────────────────────────────────────────────────────────────────────
@@ -50,10 +49,21 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 CONVERSAS_ALVO: list[str] = [
     "Lobão das Promoções #136",
-    "Investiguei Ofertas #139",
+    "Investiguei Ofertas #193",
     "REI DA PROMO | 654",
     "Ofertas Gamer #154",
     "#93 Estilo Masculino | Ofertas & Achados"
+]
+
+# Nomes exatos dos CANAIS DE TRANSMISSÃO do WhatsApp para extrair.
+# Use os nomes exatamente como aparecem na lista de canais (aba "Canais").
+CANAIS_ALVO: list[str] = [
+    "PROMOSAM",
+    "Achadinhos",
+    "Promotom",
+    "gt.OFERTAS",
+    "TechTudo Ofertas",
+    "Cupons do Rolê",
 ]
 
 MAX_MENSAGENS_POR_CONVERSA: int | None = 500
@@ -510,6 +520,183 @@ class WhatsAppExtractor:
 
         return analisar_mensagem(nome_conversa, remetente, data_hora, texto)
 
+    # ── Canais de Transmissão ────────────────────────────────────────
+
+    def abrir_aba_canais(self) -> bool:
+        """Clica na aba 'Canais' do painel lateral do WhatsApp Web."""
+        log.info("Abrindo aba de Canais...")
+        try:
+            botao = WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'button[aria-label="Canais"]')
+                )
+            )
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", botao
+            )
+            time.sleep(0.5)
+
+            clicou = False
+            for tentativa in range(2):
+                try:
+                    self.driver.execute_script("arguments[0].click();", botao)
+                    clicou = True
+                    break
+                except Exception as e:
+                    log.debug(f"Tentativa {tentativa + 1} de clicar na aba Canais falhou: {e}")
+                    time.sleep(1)
+
+            if not clicou:
+                log.warning("Não foi possível clicar na aba Canais.")
+                return False
+
+            WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'div[aria-label="Lista de canais"]')
+                )
+            )
+            log.info("✔ Aba de Canais aberta.")
+            time.sleep(1)
+            return True
+        except TimeoutException:
+            log.warning("✘ Timeout ao abrir a aba de Canais.")
+            return False
+        except Exception as e:
+            log.error(f"Erro ao abrir aba de Canais: {e}")
+            return False
+
+    def buscar_e_abrir_canal(self, nome_canal: str) -> bool:
+        """Localiza um canal pela lista lateral (aba Canais) e o abre."""
+        log.info(f'Buscando canal: "{nome_canal}"...')
+        try:
+            resultados = self.driver.find_elements(
+                By.XPATH,
+                f'//div[@data-testid="newsletter-tab-newsletter-cell" and contains(@aria-label, "{nome_canal}")]'
+            )
+
+            if not resultados:
+                log.warning(f'✘ Canal "{nome_canal}" não encontrado na lista.')
+                try:
+                    todos = self.driver.find_elements(
+                        By.CSS_SELECTOR, '[data-testid="newsletter-tab-newsletter-cell"]'
+                    )
+                    nomes = [c.get_attribute("aria-label") for c in todos[:10]]
+                    log.info(f"  Canais visíveis no painel: {nomes}")
+                except Exception:
+                    pass
+                return False
+
+            resultados[0].click()
+            time.sleep(2)
+            log.info(f'✔ Canal "{nome_canal}" aberto.')
+            return True
+
+        except Exception as e:
+            log.error(f'Erro ao buscar canal "{nome_canal}": {e}')
+            return False
+
+    def _scroll_generico_para_topo(self, elemento_referencia) -> None:
+        """Encontra o ancestral rolável mais próximo de um elemento de
+        referência (ex: uma mensagem já carregada) e rola até o topo
+        repetidamente, para carregar mensagens/postagens mais antigas.
+        Mais robusto que depender de um seletor CSS fixo, que muda
+        com frequência entre versões do WhatsApp Web."""
+        try:
+            container = self.driver.execute_script(
+                """
+                let el = arguments[0];
+                while (el && el.scrollHeight <= el.clientHeight) {
+                    el = el.parentElement;
+                }
+                return el;
+                """,
+                elemento_referencia,
+            )
+        except Exception:
+            container = None
+
+        if not container:
+            log.warning("Não foi possível localizar o container rolável.")
+            return
+
+        log.info(f"Carregando conteúdo anterior ({SCROLLS_PARA_CARREGAR} scrolls)...")
+        for i in range(SCROLLS_PARA_CARREGAR):
+            self.driver.execute_script("arguments[0].scrollTop = 0;", container)
+            time.sleep(0.8)
+            if (i + 1) % 10 == 0:
+                log.info(f"  ... {i + 1}/{SCROLLS_PARA_CARREGAR} scrolls realizados")
+
+    def _extrair_texto_mensagem_canal(self, elem) -> str:
+        """Extrai o texto de uma postagem de canal, priorizando o atributo
+        alt de imagens (que costuma conter a legenda completa)."""
+        for img in elem.find_elements(By.CSS_SELECTOR, "img[alt]"):
+            alt = (img.get_attribute("alt") or "").strip()
+            if len(alt) > 10:
+                return alt
+
+        spans = elem.find_elements(By.CSS_SELECTOR, "span.selectable-text span")
+        if spans:
+            texto = " ".join(s.text for s in spans if s.text)
+            if texto:
+                return texto
+
+        return elem.text
+
+    def _processar_mensagem_canal(self, elem, nome_canal: str) -> Optional[DadosPromocao]:
+        texto = self._extrair_texto_mensagem_canal(elem)
+        if not texto or len(texto.strip()) < 5:
+            return None
+
+        data_hora = ""
+        try:
+            pre_elem = elem.find_element(By.CSS_SELECTOR, "[data-pre-plain-text]")
+            pre_text = pre_elem.get_attribute("data-pre-plain-text") or ""
+            match_dt = re.search(r"\[(.+?)\]", pre_text)
+            if match_dt:
+                data_hora = match_dt.group(1)
+        except NoSuchElementException:
+            pass
+
+        return analisar_mensagem(nome_canal, nome_canal, data_hora, texto)
+
+    def extrair_mensagens_canal(self, nome_canal: str) -> list[DadosPromocao]:
+        """Extrai todas as postagens promocionais de um canal aberto."""
+        promocoes: list[DadosPromocao] = []
+
+        mensagens_elements = self.driver.find_elements(
+            By.CSS_SELECTOR, '[data-testid^="conv-msg-"]'
+        )
+
+        if mensagens_elements:
+            self._scroll_generico_para_topo(mensagens_elements[0])
+            time.sleep(1)
+            mensagens_elements = self.driver.find_elements(
+                By.CSS_SELECTOR, '[data-testid^="conv-msg-"]'
+            )
+
+        log.info(f"Encontradas {len(mensagens_elements)} postagens no canal.")
+
+        processadas = 0
+        for elem in mensagens_elements:
+            if MAX_MENSAGENS_POR_CONVERSA and processadas >= MAX_MENSAGENS_POR_CONVERSA:
+                break
+            try:
+                resultado = self._processar_mensagem_canal(elem, nome_canal)
+                if resultado:
+                    promocoes.append(resultado)
+                processadas += 1
+            except StaleElementReferenceException:
+                continue
+            except Exception as e:
+                log.debug(f"Erro ao processar postagem de canal: {e}")
+                continue
+
+        log.info(
+            f'✔ {len(promocoes)} promoções encontradas em "{nome_canal}" '
+            f'(de {processadas} postagens analisadas).'
+        )
+        return promocoes
+
     # ── Pipeline principal ─────────────────────────────────────────
 
     def executar(self) -> None:
@@ -530,6 +717,24 @@ class WhatsAppExtractor:
                     promocoes = self.extrair_mensagens_conversa(nome)
                     self.resultados.extend(promocoes)
                     time.sleep(1)
+
+            if CANAIS_ALVO:
+                log.info(
+                    "Recarregando o WhatsApp Web antes dos canais "
+                    "(libera memória acumulada pelos grupos)..."
+                )
+                self.abrir_whatsapp()
+
+            if CANAIS_ALVO and self.abrir_aba_canais():
+                for i, nome in enumerate(CANAIS_ALVO, 1):
+                    log.info(f"\n{'═' * 60}")
+                    log.info(f"Processando canal {i}/{len(CANAIS_ALVO)}: {nome}")
+                    log.info(f"{'═' * 60}")
+
+                    if self.buscar_e_abrir_canal(nome):
+                        promocoes = self.extrair_mensagens_canal(nome)
+                        self.resultados.extend(promocoes)
+                        time.sleep(1)
 
             if self.resultados:
                 self._salvar_csv()
