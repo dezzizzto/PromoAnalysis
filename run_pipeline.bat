@@ -15,3 +15,6 @@ echo [%date% %time%] Enviando para o Sheets... >> pipeline_log.txt
 
 echo [%date% %time%] Pipeline concluido. >> pipeline_log.txt
 echo. >> pipeline_log.txt
+
+echo [%date% %time%] Verificando descontos altos... >> pipeline_log.txt
+%PYTHON% alerta_desconto.py >> pipeline_log.txt 2>&1
