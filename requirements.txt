@@ -1,2 +1,5 @@
-selenium>=4.20.0
-webdriver-manager>=4.0.0
+selenium
+webdriver-manager
+gspread
+google-auth
+pandas
