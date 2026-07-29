@@ -10,11 +10,14 @@ set PYTHONIOENCODING=utf-8
 echo [%date% %time%] Iniciando extracao... >> pipeline_log.txt
 %PYTHON% whatsapp_promo_extractor.py >> pipeline_log.txt 2>&1
 
+echo [%date% %time%] Extraindo do Telegram... >> pipeline_log.txt
+%PYTHON% telegram_promo_extractor.py >> pipeline_log.txt 2>&1
+
 echo [%date% %time%] Enviando para o Sheets... >> pipeline_log.txt
 %PYTHON% enviar_para_sheets.py >> pipeline_log.txt 2>&1
 
-echo [%date% %time%] Pipeline concluido. >> pipeline_log.txt
-echo. >> pipeline_log.txt
-
 echo [%date% %time%] Verificando descontos altos... >> pipeline_log.txt
 %PYTHON% alerta_desconto.py >> pipeline_log.txt 2>&1
+
+echo [%date% %time%] Pipeline concluido. >> pipeline_log.txt
+echo. >> pipeline_log.txt
