@@ -47,26 +47,17 @@ from webdriver_manager.chrome import ChromeDriverManager
 # CONFIGURAÇÃO — Edite aqui conforme sua necessidade
 # ─────────────────────────────────────────────────────────────────────
 
-CONVERSAS_ALVO: list[str] = [
-    "Lobão das Promoções #136",
-    "Investiguei Ofertas #193",
-    "REI DA PROMO | 654",
-    "Ofertas Gamer #154",
-    "#93 Estilo Masculino | Ofertas & Achados"
-]
+from config_loader import carregar_config
+
+_config = carregar_config()
+
+CONVERSAS_ALVO: list[str] = _config["whatsapp_grupos"]
 
 # Nomes exatos dos CANAIS DE TRANSMISSÃO do WhatsApp para extrair.
-# Use os nomes exatamente como aparecem na lista de canais (aba "Canais").
-CANAIS_ALVO: list[str] = [
-    "PROMOSAM",
-    "Achadinhos",
-    "Promotom",
-    "gt.OFERTAS",
-    "TechTudo Ofertas",
-    "Cupons do Rolê",
-]
+# Editável pelo painel (painel.py) ou diretamente em config.json.
+CANAIS_ALVO: list[str] = _config["whatsapp_canais"]
 
-MAX_MENSAGENS_POR_CONVERSA: int | None = 500
+MAX_MENSAGENS_POR_CONVERSA: int | None = _config["max_mensagens_por_conversa"]
 SCROLLS_PARA_CARREGAR: int = 25
 ARQUIVO_SAIDA: str = "promocoes_whatsapp.csv"
 CHROME_PROFILE_DIR: str = os.path.join(os.path.dirname(__file__), "chrome_profile")

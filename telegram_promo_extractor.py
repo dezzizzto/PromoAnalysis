@@ -37,28 +37,19 @@ from telethon.sync import TelegramClient
 
 # Reaproveita a lógica de detecção de promoção do extrator do WhatsApp.
 from whatsapp_promo_extractor import DadosPromocao, analisar_mensagem
+from config_loader import carregar_config
+
+_config = carregar_config()
 
 # ─────────────────────────────────────────────────────────────────────
 # CONFIGURAÇÃO
 # ─────────────────────────────────────────────────────────────────────
 
 # Nomes exatos (ou parte do nome) dos grupos/canais do Telegram para monitorar.
-# Preencha depois de decidir quais acompanhar.
-GRUPOS_CANAIS_ALVO: list[str] = [
-    "Promozone Oficial",
-    "Promos_Tech",
-    "Best Promos BR",
-    "Urubu das Promoções",
-    "PC DO FAFA PROMOÇÕES",
-    "Oferta na Sho",
-    "Mih - Cupons e Descontos",
-    "TÊNIS CERTO CUPONS & PROMOS",
-    "Bench Promos",
-    "Jersu Indica",
-    "KaBuM!",
-]
+# Editável pelo painel (painel.py) ou diretamente em config.json.
+GRUPOS_CANAIS_ALVO: list[str] = _config["telegram_grupos_canais"]
 
-MAX_MENSAGENS_POR_CONVERSA = 500
+MAX_MENSAGENS_POR_CONVERSA = _config["max_mensagens_por_conversa"]
 ARQUIVO_CSV = "promocoes_whatsapp.csv"  # mesmo CSV usado pelo extrator do WhatsApp
 ARQUIVO_SESSAO = "telegram_session"
 

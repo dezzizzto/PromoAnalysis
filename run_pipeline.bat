@@ -2,7 +2,7 @@
 REM Executa o pipeline completo: extrai promoções do WhatsApp e envia ao Google Sheets.
 REM Usado pelo Agendador de Tarefas do Windows.
 
-cd /d "C:\Users\Erik e Bia\Documents\Antigravity"
+cd /d "%~dp0"
 
 set PYTHON="C:\Users\Erik e Bia\AppData\Local\Programs\Python\Python312\python.exe"
 set PYTHONIOENCODING=utf-8

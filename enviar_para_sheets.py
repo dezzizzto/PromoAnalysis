@@ -30,6 +30,10 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 
+from config_loader import carregar_config
+
+_config = carregar_config()
+
 # ─────────────────────────────────────────────────────────────────────
 # CONFIGURAÇÃO
 # ─────────────────────────────────────────────────────────────────────
@@ -37,7 +41,7 @@ from google.oauth2.service_account import Credentials
 ARQUIVO_CSV = "promocoes_whatsapp.csv"
 ARQUIVO_ENVIADOS = "enviados.json"
 CREDENTIALS_PATH = "credentials.json"
-NOME_DA_PLANILHA = "promocoes_whatsapp"
+NOME_DA_PLANILHA = _config["nome_planilha_sheets"]
 NOME_DA_ABA = None  # None = usa a primeira aba (sheet1)
 
 logging.basicConfig(

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Lê o CSV de promoções e envia um alerta por e-mail quando encontra
-descontos acima do limite configurado (LIMITE_DESCONTO).
+descontos acima do limite configurado (config.json -> limite_desconto_alerta).
+Evita alertar a mesma promoção duas vezes usando uma aba "alertas_log" na
+própria planilha do Google Sheets como histórico.
 
 Requisitos:
-    pip install pandas
+    pip install pandas gspread google-auth
 
-Configuração (edite abaixo ou use variáveis de ambiente):
+Configuração (via config.json ou variáveis de ambiente):
     EMAIL_REMETENTE   - conta Gmail que envia o alerta
     EMAIL_SENHA_APP   - senha de app gerada em myaccount.google.com/apppasswords
     EMAIL_DESTINATARIO - quem recebe o alerta (pode ser o mesmo remetente)
@@ -31,12 +33,16 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 
+from config_loader import carregar_config
+
+_config = carregar_config()
+
 # ─────────────────────────────────────────────────────────────────────
 # CONFIGURAÇÃO
 # ─────────────────────────────────────────────────────────────────────
 
 ARQUIVO_CSV = "promocoes_whatsapp.csv"
-LIMITE_DESCONTO = 60  # percentual mínimo para disparar o alerta
+LIMITE_DESCONTO = _config["limite_desconto_alerta"]
 
 # Prefira configurar via variáveis de ambiente (mais seguro do que deixar
 # hardcoded aqui, principalmente se o arquivo for parar no GitHub por engano).
@@ -53,7 +59,7 @@ EMAIL_DESTINATARIO = os.environ.get("EMAIL_DESTINATARIO", "")
 # CONFIGURAÇÃO GOOGLE SHEETS (para deduplicação)
 # ─────────────────────────────────────────────────────────────────────
 CREDENTIALS_PATH = "credentials.json"
-NOME_DA_PLANILHA = "promocoes_whatsapp"
+NOME_DA_PLANILHA = _config["nome_planilha_sheets"]
 NOME_ABA_ALERTAS = "alertas_log"
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -169,8 +175,7 @@ def registrar_alertas(aba: gspread.Worksheet, hashes: list[tuple[str, str, str, 
     if not hashes:
         return
     try:
-        for h in hashes:
-            aba.append_row(list(h))
+        aba.append_rows([list(h) for h in hashes], value_input_option="USER_ENTERED")
     except Exception as e:
         log.warning(f"Erro ao registrar alertas no Sheets: {e}")
 
@@ -206,7 +211,6 @@ def main() -> None:
         corpo = montar_corpo_email(df_novas)
         enviar_email(corpo, len(novas))
 
-        # Registra os hashes enviados
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         novos_registros = [
             (gerar_hash_promocao(row), row.get("conversa", ""), row.get("data_hora_mensagem", ""), agora)
@@ -214,7 +218,6 @@ def main() -> None:
         ]
         registrar_alertas(aba_alertas, novos_registros)
     else:
-        # Fallback: sem sheets, envia alerta tradicional (sem dedup)
         corpo = montar_corpo_email(promocoes)
         enviar_email(corpo, len(promocoes))
 

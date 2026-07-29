@@ -1,0 +1,33 @@
+{
+  "whatsapp_grupos": [
+    "Lobão das Promoções #136",
+    "Investiguei Ofertas #193",
+    "REI DA PROMO | 654",
+    "Ofertas Gamer #154",
+    "#93 Estilo Masculino | Ofertas & Achados"
+  ],
+  "whatsapp_canais": [
+    "PROMOSAM",
+    "Achadinhos",
+    "Promotom",
+    "gt.OFERTAS",
+    "TechTudo Ofertas",
+    "Cupons do Rolê"
+  ],
+  "telegram_grupos_canais": [
+    "Promozone Oficial",
+    "Promos_Tech",
+    "Best Promos BR",
+    "Urubu das Promoções",
+    "PC DO FAFA PROMOÇÕES",
+    "Oferta na Sho",
+    "Mih - Cupons e Descontos",
+    "TÊNIS CERTO CUPONS & PROMOS",
+    "Bench Promos",
+    "Jersu Indica",
+    "KaBuM!"
+  ],
+  "limite_desconto_alerta": 60,
+  "nome_planilha_sheets": "promocoes_whatsapp",
+  "max_mensagens_por_conversa": 500
+}

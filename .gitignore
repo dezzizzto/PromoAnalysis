@@ -1,9 +1,24 @@
+# Credenciais e sessões — NUNCA versionar
+credentials.json
 chrome_profile/
+telegram_session.session
+telegram_session.session-journal
+
+# Dados extraídos (podem conter informações privadas dos grupos)
 promocoes_whatsapp.csv
+*.csv
+enviados.json
+pipeline_log.txt
+
+# Python
 __pycache__/
 *.pyc
-.env
 .venv/
+venv/
 env/
-credentials.json
-pipeline_log.txt
+
+# Ambiente
+.env
+
+# Editor
+.vscode/
