@@ -27,7 +27,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 
 import pandas as pd
 import gspread
@@ -59,11 +59,13 @@ EMAIL_DESTINATARIO = os.environ.get("EMAIL_DESTINATARIO", "")
 # CONFIGURAÇÃO GOOGLE SHEETS (para deduplicação)
 # ─────────────────────────────────────────────────────────────────────
 CREDENTIALS_PATH = "credentials.json"
-NOME_DA_PLANILHA = _config["nome_planilha_sheets"]
+
+# Planilha única com abas semanais
+NOME_DA_PLANILHA = "promocoes_whatsapp"
 NOME_ABA_ALERTAS = "alertas_log"
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive",
 ]
 
 SMTP_HOST = "smtp.gmail.com"

@@ -16,6 +16,9 @@ echo [%date% %time%] Extraindo do Telegram... >> pipeline_log.txt
 echo [%date% %time%] Enviando para o Sheets... >> pipeline_log.txt
 %PYTHON% enviar_para_sheets.py >> pipeline_log.txt 2>&1
 
+echo [%date% %time%] Atualizando banco de dados... >> pipeline_log.txt
+%PYTHON% db.py >> pipeline_log.txt 2>&1
+
 echo [%date% %time%] Verificando descontos altos... >> pipeline_log.txt
 %PYTHON% alerta_desconto.py >> pipeline_log.txt 2>&1
 

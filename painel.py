@@ -26,9 +26,10 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 from config_loader import carregar_config, salvar_config
+from db import stats_resumo, stats_por_dia, stats_por_loja, stats_por_semana
 
 app = Flask(__name__)
 
@@ -36,6 +37,7 @@ PASTA_PROJETO = Path(__file__).parent
 ARQUIVO_LOG = PASTA_PROJETO / "pipeline_log.txt"
 ARQUIVO_CSV = PASTA_PROJETO / "promocoes_whatsapp.csv"
 SCRIPT_PIPELINE = PASTA_PROJETO / "run_pipeline.bat"
+PASTA_DASHBOARD = PASTA_PROJETO / "dashboard" / "dist"
 
 _estado = {"rodando": False, "processo": None}
 _lock = threading.Lock()
@@ -61,7 +63,19 @@ def _executar_pipeline_em_thread() -> None:
 
 @app.route("/")
 def index():
+    if PASTA_DASHBOARD.exists():
+        return send_from_directory(str(PASTA_DASHBOARD), "index.html")
     return PAGINA_HTML
+
+
+@app.route("/assets/<path:filename>")
+def dashboard_assets(filename):
+    return send_from_directory(str(PASTA_DASHBOARD / "assets"), filename)
+
+
+@app.route("/favicon.svg")
+def favicon():
+    return "", 204
 
 
 @app.route("/api/config", methods=["GET"])
@@ -140,6 +154,16 @@ def api_stats():
         "ultima_execucao": ultima_execucao or "—",
         "total_fontes": total_fontes,
         "limite_desconto": config.get("limite_desconto_alerta", 60),
+    })
+
+
+@app.route("/api/promocoes", methods=["GET"])
+def api_promocoes():
+    return jsonify({
+        "resumo": stats_resumo(),
+        "por_dia": stats_por_dia(30),
+        "por_loja": stats_por_loja(),
+        "por_semana": stats_por_semana(),
     })
 
 

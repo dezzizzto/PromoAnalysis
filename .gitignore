@@ -9,6 +9,7 @@ promocoes_whatsapp.csv
 *.csv
 enviados.json
 pipeline_log.txt
+promocoes.db
 
 # Python
 __pycache__/

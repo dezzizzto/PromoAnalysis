@@ -18,7 +18,6 @@ PADRAO: dict[str, Any] = {
     "whatsapp_canais": [],
     "telegram_grupos_canais": [],
     "limite_desconto_alerta": 60,
-    "nome_planilha_sheets": "promocoes_whatsapp",
     "max_mensagens_por_conversa": 500,
 }
 

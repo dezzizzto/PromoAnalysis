@@ -8,8 +8,10 @@ Extrai mensagens de promoções/ofertas de grupos e canais do WhatsApp e do Tele
 2. **`telegram_promo_extractor.py`** — conecta na sua conta do Telegram via Telethon, lê os grupos/canais configurados, aplica a mesma lógica de detecção de promoção do extrator do WhatsApp, e **adiciona** os resultados ao mesmo `promocoes_whatsapp.csv`.
 3. **`enviar_para_sheets.py`** — lê o CSV consolidado (WhatsApp + Telegram) e envia os dados novos para uma planilha do Google Sheets via API, evitando duplicatas com um histórico local (`enviados.json`).
 4. **`alerta_desconto.py`** — verifica se alguma promoção tem desconto igual ou maior que o limite configurado e envia um e-mail de alerta, evitando alertar a mesma promoção duas vezes (registro em uma aba `alertas_log` na própria planilha).
-5. **`run_pipeline.bat`** — roda os quatro scripts acima em sequência e grava log em `pipeline_log.txt`.
-6. **`setup_agendador.bat`** — registra automaticamente a execução horária no Agendador de Tarefas do Windows.
+5. **`run_pipeline.bat`** — roda os scripts de extração, Sheets, banco de dados e alertas em sequência e grava log em `pipeline_log.txt`.
+6. **`painel.py`** — painel de controle local (Flask + React) em `http://localhost:5050` para gerenciar grupos, rodar o pipeline e acompanhar logs.
+7. **`db.py`** — banco SQLite com histórico de todas as promoções, alimenta os gráficos e relatórios do dashboard.
+8. **`setup_agendador.bat`** — registra automaticamente a execução horária no Agendador de Tarefas do Windows.
 
 ## Stack
 
@@ -18,6 +20,9 @@ Extrai mensagens de promoções/ofertas de grupos e canais do WhatsApp e do Tele
 - Telethon (Telegram, via conta de usuário)
 - gspread + Google Service Account (API do Sheets)
 - pandas
+- Flask (painel de controle)
+- React + Vite + TailwindCSS + Recharts (dashboard)
+- SQLite (histórico e analytics)
 - smtplib (alerta por e-mail via Gmail SMTP)
 
 ## Setup
@@ -86,6 +91,52 @@ Clique com o botão direito em `setup_agendador.bat` → **Executar como adminis
 5. Na aba Geral, marque **"Executar somente quando o usuário estiver conectado"** (necessário porque o Selenium precisa de uma sessão gráfica ativa).
 
 > **Por que precisa do Agendador de Tarefas?** O extrator do WhatsApp usa automação de navegador (Selenium), que exige uma janela do Chrome real — por isso não dá para rodar como um serviço totalmente invisível/sem sessão. É preciso estar logado no Windows para a extração funcionar.
+
+## Painel de Controle
+
+O `painel.py` serve um dashboard React em `http://localhost:5050` com:
+
+- Cards com métricas (promoções, fontes, limite de alerta)
+- Pipeline visual com etapas animadas
+- Log colorido com filtros por nível
+- Gráfico de extrações (últimos 30 dias)
+- Listagem de promoções por loja
+- Botões de ação rápida (executar pipeline, exportar)
+- Gerenciamento de grupos/canais
+
+Para usar, execute:
+
+```cmd
+python painel.py
+```
+
+O dashboard React é servido diretamente pelo Flask (build estático em `dashboard/dist/`).
+
+## Planilha Semanal
+
+O `enviar_para_sheets.py` cria abas semanais automaticamente na planilha `promocoes_whatsapp`:
+
+- `W30` → dados da semana 30
+- `W31` → dados da semana 31
+- `W32` → dados da semana 32
+
+A cada semana, uma nova aba é criada, mantendo o histórico das semanas anteriores separado por aba.
+
+## Versões
+
+| Versão | Funcionalidade |
+|--------|---------------|
+| v1.0 | Extrator WhatsApp funcional (Selenium → CSV) |
+| v2.0 | Integração com Google Sheets |
+| v3.0 | Automação horária via Task Scheduler |
+| v3.1 | setup_agendador.bat com encoding UTF-8 |
+| v4.0 | Alerta por e-mail (descontos ≥ limite) |
+| v5.0 | Deduplicação via Google Sheets (aba `alertas_log`) |
+| v5.1 | Alertas e reenvios configurados |
+| v6.0 | Canais de transmissão do WhatsApp + rate limit |
+| v7.0 | Integração com Telegram via Telethon |
+| v8.0 | Painel de controle Flask (tema fogo, stats, log) |
+| v9.0 | SQLite (db.py), abas semanais no Sheets, dashboard React |
 
 ## Aviso
 

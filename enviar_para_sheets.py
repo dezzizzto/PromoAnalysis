@@ -25,6 +25,7 @@ import time
 import hashlib
 import logging
 from pathlib import Path
+from datetime import date
 
 import pandas as pd
 import gspread
@@ -41,8 +42,11 @@ _config = carregar_config()
 ARQUIVO_CSV = "promocoes_whatsapp.csv"
 ARQUIVO_ENVIADOS = "enviados.json"
 CREDENTIALS_PATH = "credentials.json"
-NOME_DA_PLANILHA = _config["nome_planilha_sheets"]
-NOME_DA_ABA = None  # None = usa a primeira aba (sheet1)
+
+# Planilha única com abas semanais: aba = W30, W31, ...
+iso = date.today().isocalendar()
+NOME_DA_PLANILHA = "promocoes_whatsapp"
+NOME_DA_ABA = f"W{iso[1]:02d}"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,7 +57,7 @@ log = logging.getLogger("enviar_sheets")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive",
 ]
 
 
@@ -61,7 +65,17 @@ def conectar_planilha():
     creds = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=SCOPES)
     gc = gspread.authorize(creds)
     planilha = gc.open(NOME_DA_PLANILHA)
-    return planilha.worksheet(NOME_DA_ABA) if NOME_DA_ABA else planilha.sheet1
+    try:
+        return planilha.worksheet(NOME_DA_ABA)
+    except gspread.WorksheetNotFound:
+        aba = planilha.add_worksheet(NOME_DA_ABA, 100, 10)
+        aba.append_row(
+            ["conversa", "remetente", "data_hora_mensagem", "texto_original",
+             "preco_encontrado", "preco_anterior", "desconto_percentual",
+             "keywords_encontradas", "data_extracao"]
+        )
+        log.info(f"Criada nova aba: {NOME_DA_ABA}")
+        return aba
 
 
 def carregar_csv() -> pd.DataFrame:
